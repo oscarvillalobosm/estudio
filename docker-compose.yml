@@ -1,22 +1,30 @@
 # Para Coolify: "Docker Compose" como tipo de build.
 # El volumen es lo unico que hay que declarar aparte en la interfaz.
+#
+# IMPORTANTE: todos los valores sensibles van como ${VARIABLE}. Si se escriben
+# como literales, el compose gana sobre el panel de Coolify y ademas el secreto
+# queda publicado en el repositorio. Nunca poner una clave aqui.
 services:
   app:
     build:
       context: .
       args:
         GRIDCRAFT_VERSION: "0.7.0"
-        APP_TITLE: "Hojas"
+        APP_TITLE: "${APP_TITLE:-Estudio}"
     image: gridcraft-cloud:0.7.0
     restart: unless-stopped
     environment:
       # OBLIGATORIO en produccion: sin esto, cada reinicio invalida las sesiones.
-      SESSION_SECRET: "cambia-esto-por-un-secreto-largo-y-aleatorio"
+      # Ponla en el panel de Coolify, no aqui.
+      SESSION_SECRET: "${SESSION_SECRET:-}"
       # Solo se usa la primera vez, cuando no hay ningun usuario todavia.
-      ADMIN_USER: "admin"
-      ADMIN_PASSWORD: "cambia-esta-clave"
-      FORCE_SECURE: "1"
-      APP_TITLE: "Hojas"
+      # Si se dejan vacias, la cuenta inicial se crea desde la pantalla de entrada.
+      ADMIN_USER: "${ADMIN_USER:-}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
+      FORCE_SECURE: "${FORCE_SECURE:-0}"
+      APP_TITLE: "${APP_TITLE:-Estudio}"
+      # first (solo el primero, por defecto) | open | closed
+      REGISTRATION_MODE: "${REGISTRATION_MODE:-first}"
       DATA_DIR: "/data"
     volumes:
       - app-data:/data
