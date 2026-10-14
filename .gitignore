@@ -4,6 +4,7 @@ public/apps/
 # Datos de usuarios y de prueba
 data/
 data-test/
+data-reg/
 
 node_modules/
 *.log

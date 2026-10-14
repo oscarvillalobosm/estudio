@@ -74,6 +74,29 @@ Para actualizar una app basta con bajar su zip a `public/apps/<id>/`.
 5. En el dominio, activa **HTTPS** y pon `FORCE_SECURE=1` para que las cookies viajen
    con la marca `Secure`.
 
+## Cuentas y registro
+
+La pantalla de entrada tiene dos pestañas: **Entrar** y **Crear cuenta**. La pestaña de
+registro aparece o se esconde según el modo, para que un despliegue público no se llene
+de cuentas basura sin que el primer usuario quede encerrado sin forma de entrar:
+
+| Modo | Cómo se activa | Comportamiento |
+|---|---|---|
+| `first` | Por defecto | Solo puede registrarse quien llegue a una instancia vacía. Al crearse la cuenta, la pestaña desaparece. |
+| `open` | `ALLOW_REGISTRATION=1` | Cualquiera puede crear su cuenta. |
+| `closed` | `REGISTRATION_MODE=closed` | Nadie. Las cuentas las crea un administrador por consola. |
+
+El nombre de usuario admite de 3 a 32 caracteres: minúsculas, dígitos, `-` y `_`. Se
+valida antes de tocar el disco porque forma parte de la ruta donde se guardan los
+documentos. La contraseña necesita 8 caracteres o más.
+
+Hay un freno anti-abuso: 5 cuentas creadas por IP cada 10 minutos. Solo cuentan las
+cuentas que de verdad se crean, no los errores de validación, para que escribir mal la
+contraseña cinco veces no bloquee a nadie.
+
+Si prefieres dar de alta a la gente tú mismo en lugar de dejar que se auto-sirvan, usa
+`REGISTRATION_MODE=closed` y crea cada cuenta con `adduser`.
+
 ## Notas de diseño
 
 - **Las builds web se descargan en la imagen**, no se compilan. El Dockerfile baja el zip

@@ -110,6 +110,21 @@ Para actualizar una app: bajar su zip del release oficial a `public/apps/<id>/` 
 reiniciar. Las versiones se fijan por build arg en el Dockerfile
 (`GRIDCRAFT_VERSION`, `WORDCRAFT_VERSION`, …).
 
+## Trampa: el freno anti-abuso no puede contar los errores de validacion
+
+El registro limita a 5 cuentas creadas por IP cada 10 minutos. La primera version contaba
+toda peticion a `/api/register`, y las pruebas loDetectaron al instante: seis rechazos por
+validacion (contrasena corta, nombre con espacios, `../../etc`...) agotaban el cupo y el
+usuario que al final tecleaba bien recibia 429 y se quedaba sin poder registrarse nunca.
+
+El criterio correcto: **lo caro es scrypt, asi que se cuentan las cuentas que se crean de
+verdad, no los mensajes de error.** Por eso `Auth.create()` esta partido en dos:
+`checkCreatable()` valida formato y disponibilidad sin hashear, y `_insert()` es la unica
+que paga el scrypt. El servidor comprueba primero y aplica el freno despues.
+
+Relacionado: `Auth.create()` sigue existiendo para el CLI y el bootstrap, y llama a las dos
+mitades. Si anades otra forma de dar de alta usuarios, no te saltes `checkCreatable()`.
+
 ## Riesgos conocidos
 
 - **Los cinco proyectos upstream están en alpha y sacan releases diarios.** Funcionan hoy

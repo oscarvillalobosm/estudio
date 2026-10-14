@@ -38,6 +38,15 @@ class Auth {
 
   create(username, password) {
     username = String(username || '').toLowerCase().trim();
+    this.checkCreatable(username, password);
+    return this._insert(username, password);
+  }
+
+  // Valida formato y disponibilidad SIN hashear. Existe separado de create()
+  // para que el servidor pueda comprobar la solicitud (y aplicar su freno de
+  // abuso) antes de pagar el coste de scrypt, que es lo unico caro aqui.
+  checkCreatable(username, password) {
+    username = String(username || '').toLowerCase().trim();
     if (!Auth.validUsername(username)) {
       throw new Error('Usuario invalido: 3-32 caracteres, solo minusculas, digitos, - y _');
     }
@@ -45,7 +54,10 @@ class Auth {
       throw new Error('La contrasena debe tener al menos 8 caracteres');
     }
     if (this.users[username]) throw new Error('Ese usuario ya existe');
+    return username;
+  }
 
+  _insert(username, password) {
     const salt = crypto.randomBytes(16).toString('hex');
     this.users[username] = {
       salt,
@@ -72,6 +84,34 @@ class Auth {
 
   list() {
     return Object.keys(this.users).sort();
+  }
+
+  hasUsers() {
+    return Object.keys(this.users).length > 0;
+  }
+
+  // Modos de registro, de mas abierto a mas cerrado:
+  //   open   -> cualquiera puede crear su cuenta (ALLOW_REGISTRATION=1)
+  //   first  -> solo mientras no exista ninguna cuenta (comportamiento inicial)
+  //   closed -> nadie puede crear cuentas; hay que usar `adduser` por consola
+  // Por defecto se elige `first`: en una instancia nueva el primer visitante
+  // puede quedarse con la cuenta, y en cuanto existe una la pantalla de registro
+  // desaparece sola. Asi un despliegue publico no se llena de cuentas basura.
+  registrationState() {
+    const mode = String(process.env.REGISTRATION_MODE || '').toLowerCase()
+      || (process.env.ALLOW_REGISTRATION === '1' ? 'open' : 'first');
+    if (mode === 'open') return { open: true, mode, reason: null };
+    if (mode === 'closed') {
+      return { open: false, mode, reason: 'El registro esta cerrado en este servidor' };
+    }
+    if (this.hasUsers()) {
+      return {
+        open: false,
+        mode: 'first',
+        reason: 'La cuenta inicial ya fue creada. Pide al administrador que cree la tuya',
+      };
+    }
+    return { open: true, mode: 'first', reason: null };
   }
 
   // Cookie firmada: usuario.expiracion.hmac -> no hace falta almacenar sesiones,

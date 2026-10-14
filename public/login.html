@@ -3,97 +3,224 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Entrar</title>
+<title>Estudio · Entrar</title>
 <style>
   :root {
-    --bg: #0f172a;
-    --card: #ffffff;
-    --ink: #0f172a;
-    --muted: #64748b;
-    --line: #e2e8f0;
-    --accent: #2563eb;
-    --danger: #dc2626;
+    --bg: #08090c;
+    --panel: #101318;
+    --panel-2: #161a21;
+    --ink: #eef1f6;
+    --muted: #8b94a6;
+    --line: #232833;
+    --accent: #5b8cff;
+    --danger: #ff6b6b;
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
-    margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px;
+    margin: 0; display: grid; place-items: center; padding: 24px;
     font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    background: radial-gradient(1200px 600px at 50% -10%, #1e293b, var(--bg));
     color: var(--ink);
+    background:
+      radial-gradient(900px 500px at 50% -12%, rgba(91,140,255,.18), transparent 70%),
+      radial-gradient(700px 400px at 85% 110%, rgba(140,90,255,.12), transparent 70%),
+      var(--bg);
+    -webkit-font-smoothing: antialiased;
   }
+  .wrap { width: 100%; max-width: 400px; }
+
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+  .mark {
+    width: 32px; height: 32px; border-radius: 9px; flex: none;
+    background: linear-gradient(135deg, #5b8cff, #a86bff);
+    box-shadow: 0 6px 18px rgba(91,140,255,.35);
+  }
+  .brand b { font-size: 17px; letter-spacing: -.01em; }
+  .brand span { color: var(--muted); font-size: 13px; }
+
   .card {
-    width: 100%; max-width: 380px; background: var(--card);
-    border-radius: 14px; padding: 32px; box-shadow: 0 20px 50px rgba(0,0,0,.35);
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--line); border-radius: 16px; padding: 26px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.5);
   }
-  h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.01em; }
-  .sub { margin: 0 0 24px; color: var(--muted); font-size: 14px; }
-  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  h1 { margin: 0 0 4px; font-size: 20px; letter-spacing: -.01em; }
+  .sub { margin: 0 0 20px; color: var(--muted); font-size: 13.5px; }
+
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px;
+          background: #0b0d11; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 20px; }
+  .tab {
+    padding: 8px; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    color: var(--muted); background: transparent; border: 0; border-radius: 7px;
+    transition: background .15s, color .15s;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-selected="true"] { color: var(--ink); background: #1e232d; }
+
+  label { display: block; font-size: 12.5px; font-weight: 600; color: #c3cad6; margin-bottom: 6px; }
   input {
-    width: 100%; padding: 10px 12px; margin-bottom: 16px; font: inherit;
-    border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
+    width: 100%; padding: 11px 12px; margin-bottom: 14px; font: inherit;
+    border: 1px solid var(--line); border-radius: 9px;
+    background: #0b0d11; color: var(--ink);
   }
+  input::placeholder { color: #5a6478; }
   input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
-  button {
-    width: 100%; padding: 11px; font: inherit; font-weight: 600; cursor: pointer;
-    color: #fff; background: var(--accent); border: 0; border-radius: 8px;
+  .hint { margin: -6px 0 14px; font-size: 12px; color: var(--muted); }
+
+  button.go {
+    width: 100%; padding: 11px; margin-top: 4px; font: inherit; font-weight: 600; cursor: pointer;
+    color: #fff; background: var(--accent); border: 0; border-radius: 9px;
+    transition: filter .15s;
   }
-  button:hover { background: #1d4ed8; }
-  button:disabled { opacity: .6; cursor: progress; }
-  .error {
-    display: none; margin-bottom: 16px; padding: 10px 12px; font-size: 13px;
-    color: var(--danger); background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;
+  button.go:hover { filter: brightness(1.08); }
+  button.go:disabled { opacity: .6; cursor: progress; }
+
+  .error, .ok {
+    display: none; margin-bottom: 14px; padding: 10px 12px; font-size: 13px;
+    border-radius: 9px;
   }
-  .error.show { display: block; }
+  .error { color: var(--danger); background: rgba(255,107,107,.1); border: 1px solid rgba(255,107,107,.28); }
+  .ok { color: #63d18a; background: rgba(99,209,138,.1); border: 1px solid rgba(99,209,138,.28); }
+  .show { display: block; }
+
+  .foot { margin-top: 16px; text-align: center; font-size: 12.5px; color: var(--muted); }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
-  <form class="card" id="f">
-    <h1>Hojas</h1>
-    <p class="sub">Inicia sesión para abrir tus documentos.</p>
+  <div class="wrap">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <b>Estudio</b><br><span>Hojas · Documentos · PDF · Imagen · Vectorial</span>
+      </div>
+    </div>
 
-    <div class="error" id="err"></div>
+    <div class="card">
+      <div class="tabs" role="tablist">
+        <button class="tab" id="tabLogin" role="tab" aria-selected="true">Entrar</button>
+        <button class="tab" id="tabReg" role="tab" aria-selected="false">Crear cuenta</button>
+      </div>
 
-    <label for="u">Usuario</label>
-    <input id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+      <h1 id="title">Bienvenido de vuelta</h1>
+      <p class="sub" id="sub">Entra para abrir tus documentos desde cualquier equipo.</p>
 
-    <label for="p">Contraseña</label>
-    <input id="p" name="password" type="password" autocomplete="current-password" required>
+      <div class="error" id="err"></div>
+      <div class="ok" id="ok"></div>
 
-    <button id="b" type="submit">Entrar</button>
-  </form>
+      <!-- Entrar -->
+      <form id="fLogin">
+        <label for="u">Usuario</label>
+        <input id="u" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="tu-usuario" required autofocus>
+
+        <label for="p">Contraseña</label>
+        <input id="p" type="password" autocomplete="current-password" placeholder="••••••••" required>
+
+        <button class="go" id="bLogin" type="submit">Entrar</button>
+      </form>
+
+      <!-- Crear cuenta -->
+      <form id="fReg" class="hidden">
+        <label for="ru">Usuario</label>
+        <input id="ru" autocomplete="username" autocapitalize="none" spellcheck="false"
+               placeholder="tu-usuario" required pattern="[a-z0-9][a-z0-9_\-]{2,31}" title="3 a 32 caracteres: minusculas, digitos, guion y guion bajo">
+        <p class="hint">3 a 32 caracteres: minúsculas, dígitos, <code>-</code> y <code>_</code>.</p>
+
+        <label for="rp">Contraseña</label>
+        <input id="rp" type="password" autocomplete="new-password" placeholder="mínimo 8 caracteres" required minlength="8">
+
+        <label for="rp2">Repite la contraseña</label>
+        <input id="rp2" type="password" autocomplete="new-password" placeholder="••••••••" required minlength="8">
+
+        <button class="go" id="bReg" type="submit">Crear cuenta y entrar</button>
+      </form>
+
+      <p class="foot hidden" id="closedNote">
+        El registro está cerrado. Pídele a quien administra este servidor que cree tu cuenta.
+      </p>
+    </div>
+  </div>
 
 <script>
-const form = document.getElementById('f');
-const err  = document.getElementById('err');
-const btn  = document.getElementById('b');
+const $ = (id) => document.getElementById(id);
+const err = $('err'), ok = $('ok');
 
-form.addEventListener('submit', async (e) => {
+function fail(msg) { err.textContent = msg; err.classList.add('show'); ok.classList.remove('show'); }
+function clearMsgs() { err.classList.remove('show'); ok.classList.remove('show'); }
+
+function show(which) {
+  clearMsgs();
+  const login = which === 'login';
+  $('tabLogin').setAttribute('aria-selected', String(login));
+  $('tabReg').setAttribute('aria-selected', String(!login));
+  $('fLogin').classList.toggle('hidden', !login);
+  $('fReg').classList.toggle('hidden', login);
+  $('title').textContent = login ? 'Bienvenido de vuelta' : 'Crea tu cuenta';
+  $('sub').textContent = login
+    ? 'Entra para abrir tus documentos desde cualquier equipo.'
+    : 'Tus documentos quedan guardados en la nube, no en el equipo.';
+  (login ? $('u') : $('ru')).focus();
+}
+
+// --- El servidor decide si la pestana de registro existe -----------------------
+let regOpen = false;
+fetch('/api/registration', { cache: 'no-store' })
+  .then((r) => (r.ok ? r.json() : { open: false }))
+  .then((d) => {
+    regOpen = !!d.open;
+    if (!regOpen) {
+      $('tabReg').classList.add('hidden');
+      $('fReg').classList.add('hidden');
+      // Si hay un motivo y no hay pestana, se explica en el pie.
+      if (d.reason) $('closedNote').classList.remove('hidden');
+    }
+  })
+  .catch(() => { /* si falla, la pantalla de login sigue funcionando */ });
+
+$('tabLogin').addEventListener('click', () => show('login'));
+$('tabReg').addEventListener('click', () => show('reg'));
+
+// --- Entrar --------------------------------------------------------------------
+$('fLogin').addEventListener('submit', async (e) => {
   e.preventDefault();
-  err.classList.remove('show');
-  btn.disabled = true;
-  btn.textContent = 'Entrando…';
+  clearMsgs();
+  const b = $('bLogin'); b.disabled = true; b.textContent = 'Entrando…';
   try {
     const res = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: document.getElementById('u').value,
-        password: document.getElementById('p').value,
-      }),
+      body: JSON.stringify({ username: $('u').value, password: $('p').value }),
     });
-    if (res.ok) {
-      location.href = '/';
-      return;
-    }
+    if (res.ok) { location.href = '/'; return; }
     const data = await res.json().catch(() => ({}));
-    err.textContent = data.error || 'No se pudo iniciar sesión';
-    err.classList.add('show');
+    fail(data.error || 'No se pudo iniciar sesión');
   } catch {
-    err.textContent = 'Error de conexión con el servidor';
-    err.classList.add('show');
+    fail('Error de conexión con el servidor');
   }
-  btn.disabled = false;
-  btn.textContent = 'Entrar';
+  b.disabled = false; b.textContent = 'Entrar';
+});
+
+// --- Crear cuenta --------------------------------------------------------------
+$('fReg').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearMsgs();
+  const a = $('rp').value, c = $('rp2').value;
+  if (a !== c) return fail('Las contraseñas no coinciden');
+  if (a.length < 8) return fail('La contraseña debe tener al menos 8 caracteres');
+
+  const b = $('bReg'); b.disabled = true; b.textContent = 'Creando…';
+  try {
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: $('ru').value, password: a }),
+    });
+    if (res.ok) { location.href = '/'; return; }
+    const data = await res.json().catch(() => ({}));
+    fail(data.error || 'No se pudo crear la cuenta');
+  } catch {
+    fail('Error de conexión con el servidor');
+  }
+  b.disabled = false; b.textContent = 'Crear cuenta y entrar';
 });
 </script>
 </body>

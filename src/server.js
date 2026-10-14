@@ -106,6 +106,32 @@ function currentUser(req) {
   return auth.verifyToken(cookies(req).session);
 }
 
+// Freno anti-abuso del registro. scrypt con N=16384 cuesta ~50 ms por cuenta
+// creada, asi que lo que se limita son las cuentas creadas por IP: 5 cada 10
+// minutos. Es una medida de seguridad para un despliegue publico, no un
+// mecanismo de uso normal, asi que el tope es holgado a proposito.
+const REGISTER_WINDOW_MS = 10 * 60 * 1000;
+const REGISTER_MAX = 5;
+const registerHits = new Map();
+
+function registerAllowed(ip) {
+  const now = Date.now();
+  const hits = (registerHits.get(ip) || []).filter((t) => now - t < REGISTER_WINDOW_MS);
+  if (hits.length >= REGISTER_MAX) {
+    registerHits.set(ip, hits);
+    return false;
+  }
+  hits.push(now);
+  registerHits.set(ip, hits);
+  // Purga perezosa: evita que el mapa crezca sin limite con IPs nuevas.
+  if (registerHits.size > 5000) {
+    for (const [key, times] of registerHits) {
+      if (!times.some((t) => now - t < REGISTER_WINDOW_MS)) registerHits.delete(key);
+    }
+  }
+  return true;
+}
+
 function readBody(req, limit = MAX_BYTES) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -201,6 +227,49 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/me' && req.method === 'GET') {
       return json(res, 200, { user: user || null });
+    }
+
+    // Estado del registro, para que la pantalla sepa si pintar la pestana
+    // "Crear cuenta" o esconderla.
+    if (p === '/api/registration' && req.method === 'GET') {
+      const st = auth.registrationState();
+      return json(res, 200, { open: st.open, reason: st.reason });
+    }
+
+    // Alta de cuenta. El freno va DESPUES de validar el formato y DESPUES de
+    // comprobar que el nombre este libre: scrypt es lo caro, y lo que hay que
+    // limitar son los hash, no los mensajes de error. Ponerlo antes dejaria al
+    // usuario bloqueado 10 minutos por teclear mal su contrasena cinco veces.
+    if (p === '/api/register' && req.method === 'POST') {
+      const st = auth.registrationState();
+      if (!st.open) return json(res, 403, { error: st.reason });
+
+      const { username, password } = await readJson(req);
+      let name;
+      try {
+        name = auth.checkCreatable(username, password);
+      } catch (e) {
+        return json(res, 400, { error: e.message });
+      }
+
+      const ip = String(req.socket.remoteAddress || 'desconocida');
+      if (!registerAllowed(ip)) {
+        return json(res, 429, { error: 'Demasiadas cuentas creadas desde esta conexion. Espera unos minutos' });
+      }
+
+      let created;
+      try {
+        created = auth.create(name, password);
+      } catch (e) {
+        return json(res, 400, { error: e.message });
+      }
+      console.log(`[auth] Cuenta creada: ${created}`);
+      // Se inicia sesion de una: el registro no debe obligar a escribir la
+      // contrasena otra vez justo despues de elegirla.
+      const token = auth.issueToken(created);
+      return send(res, 200, 'application/json', '{"ok":true}', {
+        'Set-Cookie': `session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800${process.env.FORCE_SECURE ? '; Secure' : ''}`,
+      });
     }
 
     // La API y los binarios de las apps exigen sesion. Sin esto, cualquiera
