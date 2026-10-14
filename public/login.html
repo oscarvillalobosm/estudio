@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #ffffff;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --accent: #2563eb;
+    --danger: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px;
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #1e293b, var(--bg));
+    color: var(--ink);
+  }
+  .card {
+    width: 100%; max-width: 380px; background: var(--card);
+    border-radius: 14px; padding: 32px; box-shadow: 0 20px 50px rgba(0,0,0,.35);
+  }
+  h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.01em; }
+  .sub { margin: 0 0 24px; color: var(--muted); font-size: 14px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  input {
+    width: 100%; padding: 10px 12px; margin-bottom: 16px; font: inherit;
+    border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+  button {
+    width: 100%; padding: 11px; font: inherit; font-weight: 600; cursor: pointer;
+    color: #fff; background: var(--accent); border: 0; border-radius: 8px;
+  }
+  button:hover { background: #1d4ed8; }
+  button:disabled { opacity: .6; cursor: progress; }
+  .error {
+    display: none; margin-bottom: 16px; padding: 10px 12px; font-size: 13px;
+    color: var(--danger); background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;
+  }
+  .error.show { display: block; }
+</style>
+</head>
+<body>
+  <form class="card" id="f">
+    <h1>Hojas</h1>
+    <p class="sub">Inicia sesión para abrir tus documentos.</p>
+
+    <div class="error" id="err"></div>
+
+    <label for="u">Usuario</label>
+    <input id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+
+    <label for="p">Contraseña</label>
+    <input id="p" name="password" type="password" autocomplete="current-password" required>
+
+    <button id="b" type="submit">Entrar</button>
+  </form>
+
+<script>
+const form = document.getElementById('f');
+const err  = document.getElementById('err');
+const btn  = document.getElementById('b');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  err.classList.remove('show');
+  btn.disabled = true;
+  btn.textContent = 'Entrando…';
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: document.getElementById('u').value,
+        password: document.getElementById('p').value,
+      }),
+    });
+    if (res.ok) {
+      location.href = '/';
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    err.textContent = data.error || 'No se pudo iniciar sesión';
+    err.classList.add('show');
+  } catch {
+    err.textContent = 'Error de conexión con el servidor';
+    err.classList.add('show');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Entrar';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# Para Coolify: "Docker Compose" como tipo de build.
+# El volumen es lo unico que hay que declarar aparte en la interfaz.
+services:
+  app:
+    build:
+      context: .
+      args:
+        GRIDCRAFT_VERSION: "0.7.0"
+        APP_TITLE: "Hojas"
+    image: gridcraft-cloud:0.7.0
+    restart: unless-stopped
+    environment:
+      # OBLIGATORIO en produccion: sin esto, cada reinicio invalida las sesiones.
+      SESSION_SECRET: "cambia-esto-por-un-secreto-largo-y-aleatorio"
+      # Solo se usa la primera vez, cuando no hay ningun usuario todavia.
+      ADMIN_USER: "admin"
+      ADMIN_PASSWORD: "cambia-esta-clave"
+      FORCE_SECURE: "1"
+      APP_TITLE: "Hojas"
+      DATA_DIR: "/data"
+    volumes:
+      - app-data:/data
+    ports:
+      - "3000:3000"
+
+volumes:
+  app-data:

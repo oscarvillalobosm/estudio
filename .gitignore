@@ -1,0 +1,14 @@
+# Builds web: en produccion las descarga el Dockerfile desde los releases oficiales.
+public/apps/
+
+# Datos de usuarios y de prueba
+data/
+data-test/
+
+node_modules/
+*.log
+.DS_Store
+
+# Scripts de prueba local, no forman parte de la app
+check.js
+seed.js

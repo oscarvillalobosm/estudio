@@ -1,0 +1,16 @@
+# En produccion el Dockerfile descarga las builds web de los releases oficiales.
+# Esta copia local pesa ~180 MB de WASM y hace el build lento e innecesario.
+public/apps/
+
+node_modules
+data
+data-test
+.git
+.gitignore
+*.log
+AGENTS.md
+docker-compose.yml
+
+# Scripts de prueba local, no forman parte de la app
+check.js
+seed.js

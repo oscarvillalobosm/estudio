@@ -1,0 +1,15 @@
+{
+  "name": "gridcraft-cloud",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hojas de calculo en el navegador con login y guardado en la nube",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "adduser": "node src/server.js adduser"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {}
+}
