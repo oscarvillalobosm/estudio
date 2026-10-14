@@ -20,8 +20,10 @@ services:
       DATA_DIR: "/data"
     volumes:
       - app-data:/data
-    ports:
-      - "3000:3000"
+    # Con dominio, Traefik enruta por la red interna de Coolify: no hace falta
+    # publicar el puerto en el host (y hacerlo entraria en conflicto con otras apps).
+    expose:
+      - "3000"
 
 volumes:
   app-data:
