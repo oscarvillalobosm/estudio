@@ -26,8 +26,9 @@ RUN set -eux; \
       mkdir -p "/tmp/x/${app}"; \
       unzip -q /tmp/app.zip -d "/tmp/x/${app}"; \
       inner=$(find "/tmp/x/${app}" -mindepth 1 -maxdepth 1 -type d | head -1); \
+      mkdir -p "/app/public/apps/${app}"; \
       if [ -n "$inner" ]; then mv "$inner"/* "/app/public/apps/${app}/"; \
-      else mkdir -p "/app/public/apps/${app}"; mv "/tmp/x/${app}"/* "/app/public/apps/${app}/"; fi; \
+      else mv "/tmp/x/${app}"/* "/app/public/apps/${app}/"; fi; \
       test -f "/app/public/apps/${app}/index.html"; \
     }; \
     fetch_app gridcraft   "${GRIDCRAFT_VERSION}"; \
