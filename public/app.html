@@ -359,7 +359,7 @@ async function openDoc(id, { silent = false } = {}) {
   const bytes = await res.arrayBuffer();
 
   if (APP.bridge === 'native') {
-    frame.contentWindow.postMessage({ type: `${APP.id}:open`, name: doc.name, bytes }, location.origin);
+    frame.contentWindow.postMessage({ type: PREFIX + 'open', name: doc.name, bytes }, location.origin);
   } else {
     frame.contentWindow.postMessage({ suite: 'open', name: doc.name, bytes }, location.origin);
   }
@@ -392,9 +392,13 @@ window.addEventListener('resize', syncCanvas);
 
 // ---- Puente ----------------------------------------------------------------
 // Las apps con puente nativo usan su propio id como prefijo del tipo de mensaje
-// (`gridcraft:save`, `cadcraft:save`…), con el mismo formato en todas. Se arma
-// aqui desde APP.id para no llevar nombres escritos a mano por app.
-const PREFIX = `${APP.id}:`;
+// (`gridcraft:save`, `cadcraft:save`…), con el mismo formato en todas.
+//
+// El prefijo sale de `appId`, NO de `APP`: `APP` empieza en `null` y solo se llena
+// dentro de `boot()`, mas abajo. Usar `APP` aqui revienta el script entero con un
+// TypeError antes de que arranque nada, y se queda en pantalla en blanco en TODAS
+// las apps. `appId` viene de la URL y esta disponible desde el principio.
+const PREFIX = appId + ':';
 
 window.addEventListener('message', async (e) => {
   if (e.origin !== location.origin || e.source !== frame.contentWindow) return;

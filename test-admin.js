@@ -349,6 +349,23 @@ async function login(username, password) {
     check('un nombre irreconocible se deja sin app',
       (docs.data.docs || []).some((d) => d.name === 'sin-extension' && d.app === null));
   }
+
+  // El puente del host usa el id de la app como prefijo de los mensajes. Ese
+  // prefijo tiene que salir de `appId`, que viene de la URL y existe desde el
+  // principio, y no de `APP`, que arranca en `null` y solo se llena dentro de
+  // `boot()`. Usar `APP` en el tope del script lo revienta entero con un
+  // TypeError y deja la pantalla en blanco en TODAS las apps: es lo que paso al
+  // meter CADCraft, y por eso queda fixingado aqui.
+  {
+    const html = fs.readFileSync(path.join(ROOT, 'public', 'app.html'), 'utf8');
+    const iAppId = html.indexOf('const appId =');
+    const iPrefix = html.indexOf('const PREFIX =');
+    check('el prefijo del puente se arma con appId', /const PREFIX = appId/.test(html));
+    check('appId existe antes de que se use el prefijo', iAppId !== -1 && iAppId < iPrefix);
+    check('ningun mensaje del puente lleva el id de una app escrito a mano',
+      !/'(?:gridcraft|cadcraft):/.test(html));
+  }
+
   srv.child.kill();
   await new Promise((r) => setTimeout(r, 600));
 
