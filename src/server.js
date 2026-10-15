@@ -13,6 +13,7 @@ const { Store, MAX_BYTES } = require('./store');
 const { Invitations } = require('./invitations');
 const mailer = require('./mailer');
 const { APPS, BY_ID, isApp } = require('./apps');
+const desktop = require('./desktop');
 const { SHIM } = require('./shim');
 
 const PORT = Number(process.env.PORT || 3000);
@@ -578,6 +579,13 @@ const server = http.createServer(async (req, res) => {
       return sendFile(req, res, path.join(PUBLIC_DIR, 'home.html'));
     }
 
+    // Las apps de escritorio para Windows. Como `/apps/`, pide sesion: es la misma suite
+    // privada, no un repositorio publico de binarios.
+    if (p === '/descargas' || p === '/descargas/') {
+      if (!user) return send(res, 302, 'text/plain', '', { Location: '/' });
+      return sendFile(req, res, path.join(PUBLIC_DIR, 'descargas.html'));
+    }
+
     // El panel de administracion.
     if (p === '/admin' || p === '/admin.html') {
       if (!user) return send(res, 302, 'text/plain', '', { Location: '/' });
@@ -586,6 +594,40 @@ const server = http.createServer(async (req, res) => {
           '<meta charset="utf-8"><p style="font:16px system-ui;padding:40px">Necesitas ser administrador. <a href="/">Volver</a></p>');
       }
       return sendFile(req, res, path.join(PUBLIC_DIR, 'admin.html'));
+    }
+
+    // Que hay para descargar en este servidor. La pagina decide con esto, asi que dice solo
+    // lo que de verdad esta en disco: si una build de escritorio no llego a la imagen, no sale
+    // en la pagina en vez de fallar cuando alguien pulse Descargar.
+    if (p === '/api/desktop' && req.method === 'GET') {
+      return json(res, 200, { apps: desktop.disponibles() });
+    }
+
+    // La descarga de un ejecutable. NO pasa por `sendFile`: ese lee el archivo entero en
+    // memoria y lo comprime con gzip, y un binario de 80 MB en una servidor con la memoria
+    // justa que tiene este no se puede ni leer, y comprimido ademas no sirve de nada porque
+    // un .exe ya va comprimido. Aqui se manda en streaming, con su tamano exacto y como
+    // adjunto para que el navegador lo descargue en vez de intentar abrirlo.
+    const desktopFile = p.match(/^\/descargas\/([A-Za-z0-9._-]+)$/);
+    if (desktopFile) {
+      if (!user) return send(res, 302, 'text/plain', '', { Location: '/' });
+      const file = desktop.resolver(desktopFile[1]);
+      if (!file) return send(res, 404, 'text/plain', 'No hay esa descarga');
+      const st = fs.statSync(file);
+      res.writeHead(200, {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': st.size,
+        'Content-Disposition': `attachment; filename="${path.basename(file)}"`,
+        'Cache-Control': 'public, max-age=3600',
+        'X-Content-Type-Options': 'nosniff',
+      });
+      if (req.method === 'HEAD') return res.end();
+      // Si el cliente cancela a mitad (que es lo normal en un archivo grande), `close` corta
+      // el flujo en vez de dejar el descriptor abierto.
+      const stream = fs.createReadStream(file);
+      stream.on('error', () => res.destroy());
+      res.on('close', () => stream.destroy());
+      return stream.pipe(res);
     }
 
     // Aceptar una invitacion: pagina publica.

@@ -58,6 +58,17 @@ const APPS = [
     colors: ['#ea580c', '#c2410c'],
   },
   {
+    // Presentaciones. Documentos en el formato nativo `.deckcraft`; un `.slidecraft` (el
+    // nombre que le dio el proyecto original) se abre igual porque el motor lo acepta.
+    id: 'deckcraft',
+    label: 'Presentaciones',
+    tagline: 'Diapositivas, disenyo y exportacion a PDF',
+    file: 'deckcraft',
+    bridge: 'native',
+    from: 1, to: 3,
+    colors: ['#db2777', 'be185d'],
+  },
+  {
     // CAD: trae su propio puente nativo (`cadcraft:*`), igual que GridCraft, asi que
     // no necesita el shim. Documentos en DXF.
     id: 'cadcraft',

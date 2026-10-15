@@ -1,6 +1,10 @@
 # Builds web: en produccion las descarga el Dockerfile desde los releases oficiales.
 public/apps/
 
+# Ejecutables de escritorio: tambien los baja el Dockerfile desde un release. En local se
+# copian a mano para probarlos, y son 180 MB que no tienen por que vivir en el historial.
+public/escritorio/
+
 # Datos de usuarios y de prueba
 data/
 data-test/
@@ -11,6 +15,7 @@ data-nube/
 data-nube-test.*
 data-cad/
 data-pdf/
+data-wc/
 
 node_modules/
 *.log
