@@ -42,6 +42,7 @@ RUN set -eux; \
 COPY package.json ./
 COPY src ./src
 COPY public/login.html public/home.html public/app.html ./public/
+COPY public/admin.html public/invitacion.html ./public/
 
 ENV DATA_DIR=/data
 ENV PORT=3000

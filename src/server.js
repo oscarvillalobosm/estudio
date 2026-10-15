@@ -10,6 +10,8 @@ const zlib = require('zlib');
 
 const { Auth } = require('./auth');
 const { Store, MAX_BYTES } = require('./store');
+const { Invitations } = require('./invitations');
+const mailer = require('./mailer');
 const { APPS, BY_ID, isApp } = require('./apps');
 const { SHIM } = require('./shim');
 
@@ -23,6 +25,7 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const auth = new Auth(DATA_DIR);
 const store = new Store(DATA_DIR);
+const invitations = new Invitations(DATA_DIR);
 
 // ---- CLI: node src/server.js adduser <usuario> <contrasena> -----------------
 if (process.argv[2] === 'adduser') {
@@ -44,6 +47,9 @@ if (process.argv[2] === 'deluser') {
 }
 
 auth.bootstrap();
+// Las invitaciones caducadas o ya usadas no se acumulan para siempre.
+const caducadas = invitations.prune();
+if (caducadas) console.log(`[invitaciones] ${caducadas} retirada(s)`);
 
 // ---- Sirviendo el WASM con la marca retirada -------------------------------
 // El release oficial trae el nombre en el <title> y un favicon con la marca.
@@ -233,7 +239,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === '/api/me' && req.method === 'GET') {
-      return json(res, 200, { user: user || null });
+      // El rol viaja aqui para que el launcher sepa si debe ensenar el acceso
+      // al panel. El cliente nativo tambien lo usa para decidir si ofrece o no
+      // las funciones de administracion.
+      return json(res, 200, {
+        user: user || null,
+        role: user ? (auth.isAdmin(user) ? 'admin' : 'user') : null,
+      });
     }
 
     // Estado del registro, para que la pantalla sepa si pintar la pestana
@@ -282,7 +294,12 @@ const server = http.createServer(async (req, res) => {
     // La API y los binarios de las apps exigen sesion. Sin esto, cualquiera
     // podria entrar directo a /apps/wordcraft/ y usar el editor sin cuenta: solo
     // el guardado fallaria. Para un producto de pago eso es un bypass.
-    if ((p.startsWith('/api/') || p.startsWith('/apps/')) && !user) {
+    // /api/invitacion queda fuera del guard a proposito: quien recibe la
+    // invitacion todavia no tiene cuenta ni sesion, y sin excepcion no podria
+    // aceptarla nunca.
+    const publica = p.startsWith('/api/registration') || p.startsWith('/api/register')
+      || p.startsWith('/api/invitacion');
+    if ((p.startsWith('/api/') || p.startsWith('/apps/')) && !user && !publica) {
       return json(res, 401, { error: 'Sesion requerida' });
     }
 
@@ -363,11 +380,189 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // --- Panel de administracion ---
+    // Todo lo de aqui es para cuentas con rol admin. El guard de sesion de mas
+    // abajo ya ha comprobado que hay cookie; esta comprobacion es la que dice
+    // si esa cookie vale para administrar.
+    if (p.startsWith('/api/admin/')) {
+      if (!user) return json(res, 401, { error: 'Sesion requerida' });
+      if (!auth.isAdmin(user)) {
+        return json(res, 403, { error: 'Necesitas ser administrador' });
+      }
+
+      if (p === '/api/admin/users' && req.method === 'GET') {
+        return json(res, 200, { users: auth.infoAll() });
+      }
+
+      if (p === '/api/admin/users' && req.method === 'POST') {
+        const { username, password, role } = await readJson(req);
+        try {
+          auth.checkCreatable(username, password);
+          const creado = auth.create(username, password);
+          if (role === 'admin') auth.setRole(creado, 'admin');
+          console.log(`[admin] Cuenta creada por ${user}: ${creado}`);
+          return json(res, 201, { user: auth.info(creado) });
+        } catch (e) {
+          return json(res, 400, { error: e.message });
+        }
+      }
+
+      // /api/admin/users/<nombre>[/password|/role]
+      const adminUserMatch = p.match(/^\/api\/admin\/users\/([a-z0-9_-]{3,32})(\/password|\/role)?$/);
+      if (adminUserMatch) {
+        const target = adminUserMatch[1];
+        if (adminUserMatch[2] === '/password' && req.method === 'POST') {
+          const { password } = await readJson(req);
+          try {
+            auth.setPassword(target, password);
+            console.log(`[admin] Contrasena cambiada por ${user}: ${target}`);
+            return json(res, 200, { ok: true });
+          } catch (e) {
+            return json(res, 400, { error: e.message });
+          }
+        }
+        if (adminUserMatch[2] === '/role' && req.method === 'POST') {
+          const { role } = await readJson(req);
+          try {
+            auth.setRole(target, role);
+            return json(res, 200, { user: auth.info(target) });
+          } catch (e) {
+            return json(res, 400, { error: e.message });
+          }
+        }
+        if (!adminUserMatch[2] && req.method === 'DELETE') {
+          if (target === user) {
+            return json(res, 400, { error: 'No puedes eliminar tu propia cuenta' });
+          }
+          // Tambien hay que impedir quedarse sin administrador.
+          if (auth.isAdmin(target) && auth.adminCount() <= 1) {
+            return json(res, 400, { error: 'No puedes eliminar al unico administrador' });
+          }
+          auth.remove(target);
+          console.log(`[admin] Cuenta eliminada por ${user}: ${target}`);
+          return json(res, 200, { ok: true });
+        }
+      }
+
+      if (p === '/api/admin/invitations' && req.method === 'GET') {
+        return json(res, 200, {
+          invitations: invitations.infoAll(),
+          smtp: mailer.configured(),
+        });
+      }
+
+      if (p === '/api/admin/invitations' && req.method === 'POST') {
+        const { email, username } = await readJson(req);
+        let inv;
+        try {
+          inv = invitations.create(email, username);
+        } catch (e) {
+          return json(res, 400, { error: e.message });
+        }
+
+        const base = `https://${req.headers.host || 'localhost'}`;
+        const link = `${base}/invitacion/${inv.token}`;
+
+        // Plan B: si no hay SMTP, la invitacion sigue existiendo y el admin
+        // copia el enlace a mano. Un fallo de correo nunca pierde la invitacion.
+        let enviado = false;
+        let aviso = null;
+        if (mailer.configured()) {
+          try {
+            await mailer.send({
+              to: inv.email,
+              subject: `${process.env.APP_TITLE || 'Estudio'} te ha invitado`,
+              text: [
+                `Hola,`,
+                ``,
+                `Te han invitado a usar ${process.env.APP_TITLE || 'Estudio'}.`,
+                ``,
+                `Crea tu cuenta aqui:`,
+                link,
+                ``,
+                `El enlace es de un solo uso y caduca el ${new Date(inv.expiresAt).toLocaleString('es')}.`,
+              ].join('\n'),
+              html: `<div style="font-family:system-ui,sans-serif;max-width:520px">` +
+                `<h2 style="margin:0 0 16px">Te han invitado a ${process.env.APP_TITLE || 'Estudio'}</h2>` +
+                `<p>Crea tu cuenta con este enlace:</p>` +
+                `<p><a href="${link}" style="background:#5b8cff;color:#fff;padding:12px 20px;border-radius:9px;text-decoration:none;display:inline-block">Crear mi cuenta</a></p>` +
+                `<p style="color:#64748b;font-size:13px">El enlace es de un solo uso y caduca el ${new Date(inv.expiresAt).toLocaleString('es')}.</p>` +
+                `<p style="color:#94a3b8;font-size:12px;word-break:break-all">${link}</p>` +
+                `</div>`,
+            });
+            enviado = true;
+          } catch (e) {
+            aviso = `No se pudo enviar el correo: ${e.message}`;
+            console.error('[invitacion]', aviso);
+          }
+        } else {
+          aviso = 'No hay SMTP configurado: copia el enlace y compartelo a mano';
+        }
+
+        console.log(`[admin] Invitacion creada por ${user} para ${inv.email}`);
+        return json(res, 201, {
+          invitation: invitations.infoAll().find((i) => i.token === inv.token),
+          link, enviado, aviso,
+        });
+      }
+
+      if (p === '/api/admin/invitations' && req.method === 'DELETE') {
+        const { token } = await readJson(req);
+        return json(res, 200, { ok: invitations.remove(String(token || '')) });
+      }
+
+      return json(res, 404, { error: 'Ruta de administracion desconocida' });
+    }
+
+    // --- Aceptar una invitacion ---
+    // Va antes del guard general porque el visitante no tiene sesion todavia.
+    if (p === '/api/invitacion/aceptar' && req.method === 'POST') {
+      const { token, username, password } = await readJson(req);
+      const info = invitations.peek(String(token || ''));
+      if (!info.valid) return json(res, 400, { error: info.reason });
+
+      // Si la invitacion lleva nombre reservado, ese nombre gana.
+      const nombre = info.username || username;
+      try {
+        auth.checkCreatable(nombre, password);
+        const creado = auth.create(nombre, password);
+        invitations.consume(String(token));
+        console.log(`[invitacion] Cuenta creada: ${creado}`);
+        const tok = auth.issueToken(creado);
+        return send(res, 200, 'application/json', '{"ok":true}', {
+          'Set-Cookie': `session=${encodeURIComponent(tok)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800${process.env.FORCE_SECURE ? '; Secure' : ''}`,
+        });
+      } catch (e) {
+        return json(res, 400, { error: e.message });
+      }
+    }
+
+    if (p === '/api/invitacion' && req.method === 'GET') {
+      const info = invitations.peek(url.searchParams.get('token') || '');
+      return json(res, info.valid ? 200 : 400, info);
+    }
+
     // --- Paginas de la suite ---
     // El launcher: que app usar.
     if (p === '/' || p === '/index.html') {
       if (!user) return sendFile(req, res, path.join(PUBLIC_DIR, 'login.html'));
       return sendFile(req, res, path.join(PUBLIC_DIR, 'home.html'));
+    }
+
+    // El panel de administracion.
+    if (p === '/admin' || p === '/admin.html') {
+      if (!user) return send(res, 302, 'text/plain', '', { Location: '/' });
+      if (!auth.isAdmin(user)) {
+        return send(res, 403, 'text/html; charset=utf-8',
+          '<meta charset="utf-8"><p style="font:16px system-ui;padding:40px">Necesitas ser administrador. <a href="/">Volver</a></p>');
+      }
+      return sendFile(req, res, path.join(PUBLIC_DIR, 'admin.html'));
+    }
+
+    // Aceptar una invitacion: pagina publica.
+    const invitePage = p.match(/^\/invitacion\/([A-Za-z0-9_-]{10,})$/);
+    if (invitePage) {
+      return sendFile(req, res, path.join(PUBLIC_DIR, 'invitacion.html'));
     }
 
     // El editor de una app concreta. El id se valida contra el catalogo.

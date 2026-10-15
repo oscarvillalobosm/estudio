@@ -63,9 +63,67 @@ class Auth {
       salt,
       hash: crypto.scryptSync(password, salt, SCRYPT_KEYLEN).toString('hex'),
       createdAt: new Date().toISOString(),
+      // La primera cuenta del servidor administra el sistema. Si ese puesto se
+      // queda vacio (se borró la cuenta), la siguiente que se cree lo hereda,
+      // porque un servidor sin administrador no tiene forma de recuperarse.
+      role: this.adminCount() === 0 ? 'admin' : 'user',
     };
     this._save();
     return username;
+  }
+
+  adminCount() {
+    return Object.values(this.users).filter((u) => u.role === 'admin').length;
+  }
+
+  isAdmin(username) {
+    const u = this.users[String(username || '').toLowerCase().trim()];
+    return !!u && u.role === 'admin';
+  }
+
+  setRole(username, role) {
+    username = String(username || '').toLowerCase().trim();
+    if (!this.users[username]) throw new Error('Ese usuario no existe');
+    if (role !== 'admin' && role !== 'user') throw new Error('Rol invalido');
+    // No dejar el servidor sin ninguna cuenta que lo administre.
+    if (role === 'user' && this.users[username].role === 'admin' && this.adminCount() <= 1) {
+      throw new Error('No puedes quitarle el rol de admin al unico administrador');
+    }
+    this.users[username].role = role;
+    this._save();
+    return true;
+  }
+
+  // Cambia la contrasena conservando el resto de la cuenta (rol, fecha de
+  // alta). El hash y la sal se rehacen: si no, la clave nueva nunca serviria.
+  setPassword(username, password) {
+    username = String(username || '').toLowerCase().trim();
+    if (!this.users[username]) throw new Error('Ese usuario no existe');
+    if (typeof password !== 'string' || password.length < 8) {
+      throw new Error('La contrasena debe tener al menos 8 caracteres');
+    }
+    const salt = crypto.randomBytes(16).toString('hex');
+    this.users[username].salt = salt;
+    this.users[username].hash = crypto.scryptSync(password, salt, SCRYPT_KEYLEN).toString('hex');
+    this.users[username].passwordChangedAt = new Date().toISOString();
+    this._save();
+    return true;
+  }
+
+  // Vista segura para el panel: nunca sale la sal ni el hash.
+  info(username) {
+    const u = this.users[String(username || '').toLowerCase().trim()];
+    if (!u) return null;
+    return {
+      username: String(username).toLowerCase().trim(),
+      role: u.role || 'user',
+      createdAt: u.createdAt,
+      passwordChangedAt: u.passwordChangedAt || null,
+    };
+  }
+
+  infoAll() {
+    return Object.keys(this.users).sort().map((u) => this.info(u));
   }
 
   verify(username, password) {

@@ -5,6 +5,8 @@ public/apps/
 data/
 data-test/
 data-reg/
+data-cli/
+data-panel/
 
 node_modules/
 *.log

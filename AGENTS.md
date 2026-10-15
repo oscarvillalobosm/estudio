@@ -110,7 +110,31 @@ Para actualizar una app: bajar su zip del release oficial a `public/apps/<id>/` 
 reiniciar. Las versiones se fijan por build arg en el Dockerfile
 (`GRIDCRAFT_VERSION`, `WORDCRAFT_VERSION`, …).
 
-## Trampa: el freno anti-abuso no puede contar los errores de validacion
+## Trampa: `fetch_app` en el Dockerfile fallaba en imagen limpia
+
+El despliegue en Coolify moria siempre en el paso 5/8, el `RUN` que descarga las
+cinco builds. La causa era una sola palabra: en la rama que aplana la carpeta interna
+del zip, el `mv` iba a `/app/public/apps/${app}/` sin haber creado ese directorio. La
+otra rama si lo creaba, y como en local `public/apps/<id>/` ya existia, nunca se
+noto. En una imagen limpia el `mv` falla con exit code 1 y se cae el build entero.
+
+**Por que no se detecta antes:** el sintoma (el deploy falla) no se parece nada a la
+causa (falta un `mkdir`). Sin la traza de `set -eux` es indescifrable.
+
+## Trampa: la cola de Coolify NO estaba bloqueada
+
+Se diagnostico durante horas como "la cola no procesa los trabajos" porque se
+consultaba `GET /api/v1/applications/{uuid}/deployments`, que devuelve **404**. Un 404
+se lee como "no hay registros" y se concluyo que la cola estaba muerta.
+
+La ruta correcta es `GET /api/v1/deployments` (global). Y de las rutas de despliegue,
+`POST /api/v1/applications/{uuid}/deploy` **da 404 en Coolify 4.4.2**; las que funcionan
+son `POST .../start` y `POST .../restart`.
+
+**Regla:** un 404 en una API de panel no significa "vacio", significa "ruta equivocada".
+Comprobar la lista global antes de declarar algo bloqueado.
+
+## Trampa: el voto anti-abuso no puede contar los errores de validacion
 
 El registro limita a 5 cuentas creadas por IP cada 10 minutos. La primera version contaba
 toda peticion a `/api/register`, y las pruebas loDetectaron al instante: seis rechazos por

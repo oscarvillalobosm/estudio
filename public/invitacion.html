@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estudio · Crear cuenta</title>
+<style>
+  :root {
+    --bg: #08090c; --panel: #101318; --panel-2: #161a21;
+    --ink: #eef1f6; --muted: #8b94a6; --dim: #5f697c;
+    --line: #232833; --accent: #5b8cff; --danger: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; display: grid; place-items: center; padding: 24px;
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink); background: var(--bg);
+    background-image:
+      radial-gradient(900px 480px at 50% -12%, rgba(91,140,255,.16), transparent 70%),
+      radial-gradient(700px 400px at 88% 108%, rgba(168,107,255,.11), transparent 70%);
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: 100%; max-width: 420px; }
+  .brand { display: flex; align-items: center; gap: 11px; margin-bottom: 22px; }
+  .mark {
+    width: 32px; height: 32px; border-radius: 9px; flex: none;
+    background: linear-gradient(135deg, #5b8cff, #a86bff);
+    box-shadow: 0 6px 18px rgba(91,140,255,.35);
+  }
+  .brand b { font-size: 17px; }
+  .brand span { display: block; color: var(--muted); font-size: 13px; }
+
+  .card {
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--line); border-radius: 16px; padding: 26px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  }
+  h1 { margin: 0 0 4px; font-size: 20px; letter-spacing: -.01em; }
+  .sub { margin: 0 0 20px; color: var(--muted); font-size: 13.5px; }
+
+  .mail {
+    display: flex; gap: 10px; align-items: center; margin-bottom: 18px;
+    padding: 11px 13px; border-radius: 10px; font-size: 13px;
+    background: rgba(91,140,255,.08); border: 1px solid rgba(91,140,255,.22); color: #b9cbff;
+  }
+  .mail svg { flex: none; opacity: .8; }
+
+  label { display: block; font-size: 12.5px; font-weight: 600; color: #c3cad6; margin-bottom: 6px; }
+  input {
+    width: 100%; padding: 11px 12px; margin-bottom: 14px; font: inherit;
+    border: 1px solid var(--line); border-radius: 9px;
+    background: #0b0d11; color: var(--ink);
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+  input:disabled { opacity: .6; }
+  .hint { margin: -8px 0 16px; font-size: 12px; color: var(--dim); }
+
+  button.go {
+    width: 100%; padding: 11px; font: inherit; font-weight: 600; cursor: pointer;
+    color: #fff; background: var(--accent); border: 0; border-radius: 9px;
+  }
+  button.go:hover { filter: brightness(1.08); }
+  button.go:disabled { opacity: .6; cursor: progress; }
+
+  .msg {
+    display: none; margin-bottom: 16px; padding: 10px 12px; font-size: 13px; border-radius: 9px;
+  }
+  .msg.show { display: block; }
+  .msg.err { color: var(--danger); background: rgba(255,107,107,.1); border: 1px solid rgba(255,107,107,.28); }
+  .foot { margin-top: 16px; text-align: center; font-size: 12.5px; color: var(--muted); }
+  .foot a { color: var(--accent); }
+  .dead { text-align: center; padding: 8px 0 4px; }
+  .dead h1 { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <div class="mark"></div>
+      <div><b>Estudio</b><span>Hojas · Documentos · PDF · Imagen · Vectorial</span></div>
+    </div>
+
+    <div class="card" id="card">
+      <h1 id="titulo">Crea tu cuenta</h1>
+      <p class="sub" id="sub">Elige tu contraseña y empieza a trabajar.</p>
+
+      <div class="msg" id="msg"></div>
+
+      <div class="mail hidden" id="mail">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/>
+        </svg>
+        <span id="mailTxt"></span>
+      </div>
+
+      <form id="f" class="hidden">
+        <label for="u">Usuario</label>
+        <input id="u" autocapitalize="none" spellcheck="false" placeholder="tu-usuario" required>
+        <p class="hint">3 a 32 caracteres: minúsculas, dígitos, <code>-</code> y <code>_</code>.</p>
+
+        <label for="p">Contraseña</label>
+        <input id="p" type="password" autocomplete="new-password" placeholder="mínimo 8 caracteres" required minlength="8">
+
+        <label for="p2">Repite la contraseña</label>
+        <input id="p2" type="password" autocomplete="new-password" placeholder="••••••••" required minlength="8">
+
+        <button class="go" id="b" type="submit">Crear cuenta y entrar</button>
+      </form>
+
+      <div class="dead hidden" id="dead">
+        <p style="color:var(--muted);font-size:13.5px">Pide a quien administra este servidor que te envíe una invitación nueva.</p>
+      </div>
+    </div>
+
+    <p class="foot">¿Ya tienes cuenta? <a href="/">Entra aquí</a></p>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const token = location.pathname.split('/').pop();
+
+function fail(m) {
+  const e = $('msg');
+  e.textContent = m;
+  e.className = 'msg show err';
+}
+
+(async () => {
+  try {
+    const res = await fetch(`/api/invitacion?token=${encodeURIComponent(token)}`, { cache: 'no-store' });
+    const d = await res.json();
+    if (!d.valid) {
+      $('titulo').textContent = 'Invitación no válida';
+      $('sub').textContent = d.reason || 'Este enlace no sirve.';
+      $('dead').classList.remove('hidden');
+      return;
+    }
+    $('mailTxt').textContent = `Invitación para ${d.email}`;
+    $('mail').classList.remove('hidden');
+    $('f').classList.remove('hidden');
+    // Si la invitación lleva un nombre reservado, se muestra y no se edita.
+    if (d.username) {
+      $('u').value = d.username;
+      $('u').disabled = true;
+      $('u').required = false;
+    }
+    $('p').focus();
+  } catch {
+    $('titulo').textContent = 'Invitación no válida';
+    $('dead').classList.remove('hidden');
+  }
+})();
+
+$('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('msg').classList.remove('show');
+  const a = $('p').value;
+  if (a !== $('p2').value) return fail('Las contraseñas no coinciden');
+  if (a.length < 8) return fail('La contraseña debe tener al menos 8 caracteres');
+
+  const b = $('b');
+  b.disabled = true; b.textContent = 'Creando…';
+  try {
+    const cuerpo = { token, password: a };
+    if (!$('u').disabled) cuerpo.username = $('u').value;
+    const res = await fetch('/api/invitacion/aceptar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cuerpo),
+    });
+    if (res.ok) { location.href = '/'; return; }
+    const d = await res.json().catch(() => ({}));
+    fail(d.error || 'No se pudo crear la cuenta');
+  } catch {
+    fail('Error de conexión con el servidor');
+  }
+  b.disabled = false; b.textContent = 'Crear cuenta y entrar';
+});
+</script>
+</body>
+</html>
