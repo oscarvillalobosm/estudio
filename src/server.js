@@ -116,7 +116,15 @@ function cookies(req) {
 }
 
 function currentUser(req) {
-  return auth.verifyToken(cookies(req).session);
+  // El navegador manda la cookie `session`; el cliente nativo de escritorio no
+  // tiene cookie y presenta el mismo token en `Authorization: Bearer`. Es el
+  // mismo token y la misma verificacion: la cabecera es solo otro transporte,
+  // no una via nueva con mas permisos.
+  const authz = String(req.headers.authorization || '');
+  const bearer = /^Bearer\s+(.+)$/i.exec(authz.trim());
+  const token = bearer ? bearer[1].trim() : cookies(req).session;
+  if (!token) return null;
+  return auth.verifyToken(token) || null;
 }
 
 // Freno anti-abuso del registro. scrypt con N=16384 cuesta ~50 ms por cuenta
@@ -235,6 +243,23 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/logout' && req.method === 'POST') {
       return send(res, 200, 'application/json', '{"ok":true}', {
         'Set-Cookie': 'session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0',
+      });
+    }
+
+    // Login para clientes que no son navegador. Devuelve el token en el cuerpo
+    // en vez de en una cookie HttpOnly: un cliente nativo no tiene almacen de
+    // cookies, y meterlo en el boton "Entrar" de una app de escritorio permitiria
+    // leer la sesion desde el proceso. El cliente lo guarda en DPAPI.
+    if (p === '/api/token' && req.method === 'POST') {
+      const { username, password } = await readJson(req);
+      const name = String(username || '').toLowerCase().trim();
+      if (!auth.verify(name, password)) {
+        return json(res, 401, { error: 'Usuario o contrasena incorrectos' });
+      }
+      return json(res, 200, {
+        token: auth.issueToken(name),
+        user: name,
+        role: auth.isAdmin(name) ? 'admin' : 'user',
       });
     }
 

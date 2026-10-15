@@ -18,8 +18,8 @@ function check(name, cond, extra = '') {
   else { fail++; console.log(`  FALLA ${name} ${extra}`); }
 }
 
-async function req(method, p, body, cookie) {
-  const headers = {};
+async function req(method, p, body, cookie, extraHeaders) {
+  const headers = { ...(extraHeaders || {}) };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (cookie) headers.Cookie = cookie;
   const res = await fetch(`http://127.0.0.1:${PORT}${p}`, {
@@ -232,6 +232,49 @@ async function login(username, password) {
     const c1 = sessionCookie(r1.cookie);
     const b = await req('DELETE', '/api/admin/users/primero', undefined, c1);
     check('el admin puede borrarse a si mismo... no puede', b.status === 400);
+  }
+  srv.child.kill();
+  await new Promise((r) => setTimeout(r, 600));
+
+  console.log('\n== Sesion por token, para el cliente de escritorio ==');
+  PORT = 8409;
+  srv = await startServer();
+  {
+    await req('POST', '/api/register', { username: 'escritorio', password: 'clave-de-prueba-123' });
+    const { username, password } = { username: 'escritorio', password: 'clave-de-prueba-123' };
+
+    // Comprobacion aparte: /api/token NO debe emitir cookie, o el token
+    // acabaria tambien en el almacen del navegador.
+    const conCookie = await req('GET', '/api/docs', undefined, sessionCookie((await req('POST', '/api/login', { username, password })).cookie));
+    check('la cookie sigue funcionando', conCookie.status === 200);
+
+    const malo = await req('POST', '/api/token', { username, password: 'incorrecta' });
+    check('clave incorrecta no devuelve token', malo.status === 401 && !malo.data.token);
+
+    const ok = await req('POST', '/api/token', { username, password });
+    check('devuelve token, usuario y rol', ok.status === 200 && !!ok.data.token && ok.data.user === 'escritorio' && ok.data.role === 'admin');
+    check('y no deja cookie en el navegador', !ok.cookie, String(ok.cookie));
+
+    // La via nueva no es una via de mas permisos: el mismo token que da la
+    // cookie sirve en la cabecera, y uno inventado no pasa.
+    const sinNada = await req('GET', '/api/docs');
+    check('sin token no hay documentos', sinNada.status === 401);
+
+    const conBearer = await req('GET', '/api/docs', undefined, undefined, { Authorization: `Bearer ${ok.data.token}` });
+    check('el token en cabecera abre la API', conBearer.status === 200 && Array.isArray(conBearer.data.docs));
+
+    const falso = await req('GET', '/api/docs', undefined, undefined, { Authorization: 'Bearer inventado' });
+    check('un token falso no abre nada', falso.status === 401);
+
+    const truncado = await req('GET', '/api/docs', undefined, undefined, { Authorization: `Bearer ${String(ok.data.token).slice(0, -4)}` });
+    check('un token recortado no abre nada', truncado.status === 401);
+
+    // El token da lo mismo que la cookie: nada de admin extra.
+    const panel = await req('GET', '/api/admin/users', undefined, undefined, { Authorization: `Bearer ${ok.data.token}` });
+    check('el admin tambien entra al panel con token', panel.status === 200 && Array.isArray(panel.data.users));
+
+    const me = await req('GET', '/api/me', undefined, undefined, { Authorization: `Bearer ${ok.data.token}` });
+    check('/api/me reconoce el token', me.data.user === 'escritorio' && me.data.role === 'admin');
   }
   srv.child.kill();
   await new Promise((r) => setTimeout(r, 600));
