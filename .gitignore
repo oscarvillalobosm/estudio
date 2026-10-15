@@ -10,6 +10,7 @@ data-panel/
 data-nube/
 data-nube-test.*
 data-cad/
+data-pdf/
 
 node_modules/
 *.log
