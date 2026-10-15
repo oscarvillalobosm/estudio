@@ -38,13 +38,15 @@ function sessionCookie(setCookie) {
   return String(setCookie || '').split(';')[0];
 }
 
-async function startServer(env = {}) {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'estudio-admin-'));
+// `dataDir` permite relanzar el servidor sobre los mismos datos, que es lo que
+// necesita la prueba de reparacion: hay que arrancar con lo que ya estaba mal.
+async function startServer(dataDir = null, env = {}) {
+  const dir = dataDir || fs.mkdtempSync(path.join(os.tmpdir(), 'estudio-admin-'));
   const child = spawn(process.execPath, [path.join(ROOT, 'src', 'server.js')], {
     cwd: ROOT,
     env: {
       ...process.env,
-      DATA_DIR: dataDir,
+      DATA_DIR: dir,
       PORT: String(PORT),
       HOST: '127.0.0.1',
       SESSION_SECRET: 'b'.repeat(64),
@@ -61,7 +63,7 @@ async function startServer(env = {}) {
     await new Promise((r) => setTimeout(r, 400));
     try {
       const res = await fetch(`http://127.0.0.1:${PORT}/api/registration`);
-      if (res.ok) return { child, dataDir, log: () => log };
+      if (res.ok) return { child, dataDir: dir, log: () => log };
     } catch { /* aun no escucha */ }
   }
   console.log(log);
@@ -275,6 +277,72 @@ async function login(username, password) {
 
     const me = await req('GET', '/api/me', undefined, undefined, { Authorization: `Bearer ${ok.data.token}` });
     check('/api/me reconoce el token', me.data.user === 'escritorio' && me.data.role === 'admin');
+  }
+
+  // ---- Documentos: que app los abre ------------------------------------------
+  // El fallo real: un cliente de escritorio guardaba sin decir de que app era el
+  // documento, y entonces el launcher no lo abria. Estos casos fijan que la app
+  // se deduce del nombre y que lo ya guardado se repara.
+  {
+    const r = await req('POST', '/api/register', { username: 'nube', password: 'clave-de-prueba-123' });
+    const c = sessionCookie(r.cookie);
+
+    const sinApp = await req('POST', '/api/docs', { name: 'Presupuesto.xlsx' }, c);
+    check('un documento sin app deduce la suya por extension', sinApp.data.doc.app === 'gridcraft', JSON.stringify(sinApp.data));
+
+    const conApp = await req('POST', '/api/docs', { name: 'Otro.pdf', app: 'pdfcraft' }, c);
+    check('la app que manda el cliente se respeta', conApp.data.doc.app === 'pdfcraft');
+
+    const sinExtension = await req('POST', '/api/docs', { name: 'sin-extension' }, c);
+    check('un nombre sin extension no inventa una app', sinExtension.data.doc.app === null, JSON.stringify(sinExtension.data));
+
+    // Renombrar a otra extension mueve el documento de aplicacion.
+    await req('POST', `/api/docs/${conApp.data.doc.id}/rename`, { name: 'movido.docx' }, c);
+    const leido = await req('GET', '/api/docs', undefined, c);
+    const movido = (leido.data.docs || []).find((d) => d.id === conApp.data.doc.id);
+    check('renombrar cambia la app que lo abre', movido && movido.app === 'wordcraft', JSON.stringify(movido));
+
+    // Y aparece en el listado de su app, que es lo que el editor web consulta.
+    const deGrid = await req('GET', '/api/docs?app=gridcraft', undefined, c);
+    check(
+      'el documento aparece en el listado de su app',
+      (deGrid.data.docs || []).some((d) => d.id === sinApp.data.doc.id)
+    );
+  }
+
+  // El directorio se guarda antes de parar el servidor: este bloque relanza
+  // sobre los mismos datos a proposito.
+  const datosDeDocs = srv.dataDir;
+  srv.child.kill();
+  await new Promise((r) => setTimeout(r, 600));
+
+  // Documentos que ya estaban guardados sin app: se reparan al arrancar, sin
+  // que el usuario tenga que volver a guardarlos.
+  console.log('\n== Documentos huerfanos reparados al arrancar ==');
+  {
+    const dir = path.join(datosDeDocs, 'users', 'nube');
+    const idx = path.join(dir, 'index.json');
+    const antes = JSON.parse(fs.readFileSync(idx, 'utf8'));
+    for (const d of Object.values(antes)) d.app = null;
+    fs.writeFileSync(idx, JSON.stringify(antes, null, 2));
+
+    PORT = 8410;
+    srv = await startServer(datosDeDocs);
+    const c = await login('nube', 'clave-de-prueba-123');
+    const docs = await req('GET', '/api/docs', undefined, c);
+    const lista = docs.data.docs || [];
+    // Solo se reparan los que su extension identifica; un nombre irreconocible
+    // se deja como estaba en vez de inventarle una aplicacion.
+    const reparables = lista.filter((d) => /\.(xlsx|docx|pdf|psd|vectorcraft)$/i.test(d.name));
+    check('tras arrancar no queda ninguno de los reconocibles sin app',
+      reparables.every((d) => d.app),
+      JSON.stringify(lista.map((d) => [d.name, d.app])));
+    check('y cada uno quedo con la app de su extension',
+      (docs.data.docs || []).some((d) => d.name === 'Presupuesto.xlsx' && d.app === 'gridcraft'),
+      JSON.stringify((docs.data.docs || []).map((d) => [d.name, d.app])));
+    // El nombre sin extension no se inventa: se deja como estaba.
+    check('un nombre irreconocible se deja sin app',
+      (docs.data.docs || []).some((d) => d.name === 'sin-extension' && d.app === null));
   }
   srv.child.kill();
   await new Promise((r) => setTimeout(r, 600));

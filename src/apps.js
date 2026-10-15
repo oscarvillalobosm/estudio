@@ -57,10 +57,22 @@ const APPS = [
 
 const BY_ID = Object.fromEntries(APPS.map((a) => [a.id, a]));
 
-// Un id de app viene siempre de la URL: se valida contra el catalogo en vez de
+// Extension -> app. The server uses this to route a document to the editor that
+// can open it, both when the client does not say which app a document belongs to
+// (a desktop shell) and when it needs to repair documents stored before that was
+// known. The extension is the only thing both sides always agree on.
+const BY_FILE = Object.fromEntries(APPS.map((a) => [a.file.toLowerCase(), a.id]));
+
+// Which app opens this file name, or null when the extension is not one of ours.
+function appForFile(name) {
+  const ext = String(name || '').split('.').pop()?.toLowerCase() || '';
+  return BY_FILE[ext] || null;
+}
+
+// An id de app viene siempre de la URL: se valida contra el catalogo en vez de
 // usarlo para construir rutas.
 function isApp(id) {
   return typeof id === 'string' && Object.prototype.hasOwnProperty.call(BY_ID, id);
 }
 
-module.exports = { APPS, BY_ID, isApp };
+module.exports = { APPS, BY_ID, isApp, appForFile };

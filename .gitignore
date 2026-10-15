@@ -7,6 +7,8 @@ data-test/
 data-reg/
 data-cli/
 data-panel/
+data-nube/
+data-nube-test.*
 
 node_modules/
 *.log

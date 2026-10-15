@@ -50,6 +50,10 @@ auth.bootstrap();
 // Las invitaciones caducadas o ya usadas no se acumulan para siempre.
 const caducadas = invitations.prune();
 if (caducadas) console.log(`[invitaciones] ${caducadas} retirada(s)`);
+// Documentos guardados sin app (versiones anteriores, o un cliente que no la
+// manda): se reparan una vez aqui, porque sin app no los abre ninguna app.
+const reparados = store.repairApps();
+if (reparados) console.log(`[documentos] ${reparados} documento(s) asignado(s) a una app`);
 
 // ---- Sirviendo el WASM con la marca retirada -------------------------------
 // El release oficial trae el nombre en el <title> y un favicon con la marca.

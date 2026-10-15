@@ -9,6 +9,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const { appForFile } = require('./apps');
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MAX_BYTES = 100 * 1024 * 1024; // 100 MB por documento
 const MAX_DEPTH = 12; // tope de anidamiento de carpetas
@@ -66,7 +68,10 @@ class Store {
     docs[docId] = {
       id: docId,
       name,
-      app: app || null,
+      // La app se deduce de la extension cuando el cliente no la dice: un
+      // documento sin app no lo abre ninguna aplicacion, asi que guardarlo sin
+      // ella lo vuelve invisible en el launcher.
+      app: app || appForFile(name),
       folderId: this._checkFolder(username, folderId),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -74,6 +79,43 @@ class Store {
     fs.mkdirSync(path.join(this.userDir(username), 'files'), { recursive: true });
     this._saveDocs(username, docs);
     return docs[docId];
+  }
+
+  // Documentos guardados antes de que la app se dedujera, o renombrados despues.
+  // Sin esto quedan huérfanos: existen, pesan, y no se pueden abrir.
+  adoptApp(username, docId) {
+    const docs = this._docs(username);
+    const doc = docs[docId];
+    if (!doc || doc.app) return doc || null;
+    doc.app = appForFile(doc.name);
+    if (doc.app) {
+      docs[docId] = doc;
+      this._saveDocs(username, docs);
+    }
+    return doc;
+  }
+
+  // Barrido al arrancar: repara de una vez todos los documentos sin app de todos
+  // los usuarios, en vez de esperar a que cada uno se abra.
+  repairApps() {
+    const base = path.join(this.dataDir, 'users');
+    if (!fs.existsSync(base)) return 0;
+    let fixed = 0;
+    for (const user of fs.readdirSync(base)) {
+      const docs = this._docs(user);
+      let changed = false;
+      for (const [id, doc] of Object.entries(docs)) {
+        if (doc.app) continue;
+        const app = appForFile(doc.name);
+        if (!app) continue;
+        doc.app = app;
+        docs[id] = doc;
+        changed = true;
+        fixed += 1;
+      }
+      if (changed) this._saveDocs(user, docs);
+    }
+    return fixed;
   }
 
   get(username, docId) {
@@ -109,7 +151,14 @@ class Store {
 
     // Si la app manda un nombre nuevo, se adopta. Asi el archivo en el servidor
     // refleja el titulo que el usuario le dio en la app.
-    if (name) doc.name = String(name).slice(0, 120);
+    if (name) {
+      doc.name = String(name).slice(0, 120);
+      doc.app = appForFile(doc.name) || doc.app || null;
+    } else if (!doc.app) {
+      // Un documento sin app no lo abre nadie: se adopta la que le toque por
+      // extension en vez de dejarlo huerfano.
+      doc.app = appForFile(doc.name);
+    }
     doc.updatedAt = new Date().toISOString();
     doc.size = bytes.length;
     docs[docId] = doc;
@@ -132,6 +181,9 @@ class Store {
     const docs = this._docs(username);
     const doc = this.get(username, docId);
     doc.name = name;
+    // Renombrar a otra extension mueve el documento de aplicacion: un .pdf que
+    // se renombra a .docx lo tiene que abrir WordCraft, no PdfCraft.
+    doc.app = appForFile(name) || doc.app || null;
     doc.updatedAt = new Date().toISOString();
     docs[docId] = doc;
     this._saveDocs(username, docs);
