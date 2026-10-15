@@ -97,6 +97,38 @@ contraseña cinco veces no bloquee a nadie.
 Si prefieres dar de alta a la gente tú mismo en lugar de dejar que se auto-sirvan, usa
 `REGISTRATION_MODE=closed` y crea cada cuenta con `adduser`.
 
+### El panel de administración
+
+En `/admin` un administrador ve las cuentas y las invitaciones. Desde ahí puede:
+
+- **crear una cuenta** directamente, sin abrir el registro público;
+- **cambiar la contraseña** de cualquiera;
+- **dar o quitar el rol de administrador**, con la salvedad de que el servidor nunca se
+  queda sin uno: sin administración no hay forma de recuperar el acceso;
+- **eliminar una cuenta** (nunca la propia, ni la última administradora);
+- **emitir una invitación** con un enlace de un solo uso y siete días de validez.
+
+La primera cuenta que se crea es administradora. Si el servidor se queda sin
+administradores, la siguiente cuenta que se cree hereda el rol.
+
+Las invitaciones se envían por correo si hay SMTP configurado (`SMTP_HOST`, `SMTP_PORT`,
+`SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, y opcionalmente `SMTP_FROM_NAME`, `SMTP_HELO` y
+`SMTP_INSECURE`). **Si no hay SMTP la invitación se genera igual** y aparece el enlace para
+compartirlo a mano: un correo que no sale nunca pierde la invitación.
+
+La lista de cuentas nunca incluye el hash ni la sal, ni para el propio administrador.
+
+### Sesión por token
+
+El navegador recibe una cookie `session` (HttpOnly, SameSite=Strict). El cliente de
+escritorio no tiene almacén de cookies, así que `POST /api/token` devuelve ese mismo
+token en el cuerpo y el cliente lo manda en cada petición como
+`Authorization: Bearer <token>`.
+
+No es una vía con más permisos: el servidor acepta cookie o cabecera y las dos pasan por
+la misma verificación. Lo que `/api/token` no hace es emitir cookie, para que el token no
+acabe también en el navegador.
+
 ## Notas de diseño
 
 - **Las builds web se descargan en la imagen**, no se compilan. El Dockerfile baja el zip

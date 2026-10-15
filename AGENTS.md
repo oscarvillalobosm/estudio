@@ -149,6 +149,22 @@ que paga el scrypt. El servidor comprueba primero y aplica el freno despues.
 Relacionado: `Auth.create()` sigue existiendo para el CLI y el bootstrap, y llama a las dos
 mitades. Si anades otra forma de dar de alta usuarios, no te saltes `checkCreatable()`.
 
+## La sesion viaja en cookie o en cabecera, y son la misma
+
+El navegador lleva la cookie `session` (HttpOnly, SameSite=Strict). El cliente nativo de
+escritorio no tiene almacen de cookies, asi que `POST /api/token` devuelve el mismo token en
+el cuerpo y el cliente lo presenta en `Authorization: Bearer`.
+
+**No es una via con mas permisos.** `currentUser()` acepta las dos y las dos pasan por el
+mismo `auth.verifyToken()`. La cabecera es solo otro transporte del mismo token.
+
+Dos cosas que no se deben romper:
+
+- **`/api/token` no emite cookie.** Si lo hiciera, el token acabaria tambien en el almacen
+  del navegador, que es justo lo que un cliente nativo no puede usar pero un navegador si.
+- **El token nunca vuelve en la respuesta de un comando.** En el cliente de escritorio viaja
+  al lado del resultado y solo `poll()` decide que se le cuenta al motor.
+
 ## Riesgos conocidos
 
 - **Los cinco proyectos upstream están en alpha y sacan releases diarios.** Funcionan hoy
