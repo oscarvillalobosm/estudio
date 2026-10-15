@@ -1,8 +1,12 @@
 'use strict';
 // Catalogo de aplicaciones de la suite.
 //
-// `bridge: 'native'`  -> la app trae su propio puente postMessage (solo GridCraft).
+// `bridge: 'native'`  -> la app trae su propio puente postMessage.
 // `bridge: 'shim'`    -> interceptamos la File System Access API desde la pagina host.
+//
+// El protocolo nativo es el mismo en todas las que lo traen, con el id de la app como
+// prefijo: `<id>:ready`, `<id>:open`, `<id>:save`, `<id>:dirty`, `<id>:failed`. Asi que
+// `public/app.html` no lleva nombres escritos a mano: los arma con APP.id.
 //
 // La version se fija al compilar la imagen: es la build web oficial del proyecto
 // original, descargada desde su release.
@@ -52,6 +56,17 @@ const APPS = [
     bridge: 'shim',
     from: 1, to: 3,
     colors: ['#ea580c', '#c2410c'],
+  },
+  {
+    // CAD: trae su propio puente nativo (`cadcraft:*`), igual que GridCraft, asi que
+    // no necesita el shim. Documentos en DXF.
+    id: 'cadcraft',
+    label: 'CAD',
+    tagline: 'Planos, cotas y diseño técnico (DXF)',
+    file: 'dxf',
+    bridge: 'native',
+    from: 1, to: 3,
+    colors: ['#0891b2', '#0e7490'],
   },
 ];
 

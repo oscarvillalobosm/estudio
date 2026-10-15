@@ -15,6 +15,7 @@ proyecto open source independiente compilado a WebAssembly, y aquí se integran.
 | PDF | storytold/pdfcraft | `.pdf` | shim |
 | Imagen | storytold/photocraft | `.psd` | shim |
 | Vectorial | storytold/vectorcraft | `.vectorcraft` | shim |
+| CAD | storytold/cadcraft | `.dxf` | nativo |
 
 Fuera de alcance por ahora: FilmCraft (video, inviable en una pestaña por el límite de
 memoria del navegador) y LightCraft (biblioteca de fotos, otro modelo de producto).
@@ -42,6 +43,29 @@ no hay conflictos de rebase contra proyectos que sacan releases cada semana.
 
 Si añades una sexta app, el flujo es: bajar su zip a `public/apps/<id>/`, añadir una
 entrada a `src/apps.js`, y listo. Si usa otro mecanismo de guardado, ampliar el shim.
+
+**CADCraft se añadió por esa vía** y resultó ser de puente nativo, no de shim: su
+`apps/cadcraft-web/src/host.rs` documenta el mismo protocolo que usa GridCraft. Comprobar
+esto **antes** de escribir el shim es lo que evitó trabajo de más: el shim solo intercepta
+`showSaveFilePicker` y `showOpenFilePicker`, y CADCraft no pasa por ahí.
+
+## El protocolo nativo lleva el id de la app en el prefijo
+
+GridCraft y CADCraft traen su propio puente, y **los dos hablan exactamente el mismo
+protocolo**: los mensajes son `{type, …}` y el `type` es `<id de la app>:<que pasa>`, con
+`ready`, `open`, `save`, `dirty` y `failed`. El modo se activa igual, con `?host=parent` en
+la URL del iframe.
+
+Por eso `public/app.html` **no lleva `gridcraft:` escrito a mano**: arma
+`const PREFIX = \`${APP.id}:\`` y compara contra eso. Añadir una app con puente nativo es
+entonces una entrada más en `src/apps.js` y nada más.
+
+El shim, en cambio, habla su propio idioma (`{suite: 'saved'}`), y por eso `app.html` acepta
+las dos formas en cada mensaje.
+
+**Si añades otra app con puente, no copies los nombres de GridCraft: copia el patrón.** Un
+`gridcraft:` escrito a mano en la página es exactamente el tipo de cosa que funciona hasta
+que entra la segunda app con puente.
 
 ## Verificado empíricamente (no asumir)
 

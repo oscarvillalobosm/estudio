@@ -293,6 +293,11 @@ async function login(username, password) {
     const conApp = await req('POST', '/api/docs', { name: 'Otro.pdf', app: 'pdfcraft' }, c);
     check('la app que manda el cliente se respeta', conApp.data.doc.app === 'pdfcraft');
 
+    // CADCraft entra en el repertorio con puente propio, como GridCraft: el prefijo
+    // de los mensajes es el id de la app, no un nombre escrito a mano en la pagina.
+    const plano = await req('POST', '/api/docs', { name: 'Plano.dxf' }, c);
+    check('un .dxf se deduce a cadcraft sin que el cliente lo diga', plano.data.doc.app === 'cadcraft', JSON.stringify(plano.data));
+
     const sinExtension = await req('POST', '/api/docs', { name: 'sin-extension' }, c);
     check('un nombre sin extension no inventa una app', sinExtension.data.doc.app === null, JSON.stringify(sinExtension.data));
 

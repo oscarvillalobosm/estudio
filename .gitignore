@@ -9,6 +9,7 @@ data-cli/
 data-panel/
 data-nube/
 data-nube-test.*
+data-cad/
 
 node_modules/
 *.log

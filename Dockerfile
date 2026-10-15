@@ -1,4 +1,4 @@
-# Las cinco aplicaciones se descargan ya compiladas desde el release oficial de
+# Las aplicaciones se descargan ya compiladas desde el release oficial de
 # cada proyecto upstream. No hay que compilar Rust en la imagen.
 #
 # Se fija la version por app para poder actualizar una sin tocar las demas.
@@ -9,6 +9,7 @@ ARG WORDCRAFT_VERSION=0.7.0
 ARG PDFCRAFT_VERSION=0.8.0
 ARG PHOTOCRAFT_VERSION=0.9.0
 ARG VECTORCRAFT_VERSION=0.11.0
+ARG CADCRAFT_VERSION=0.7.0
 ARG APP_TITLE="Estudio"
 ENV NODE_ENV=production
 
@@ -36,6 +37,7 @@ RUN set -eux; \
     fetch_app pdfcraft    "${PDFCRAFT_VERSION}"; \
     fetch_app photocraft  "${PHOTOCRAFT_VERSION}"; \
     fetch_app vectorcraft "${VECTORCRAFT_VERSION}"; \
+    fetch_app cadcraft   "${CADCRAFT_VERSION}"; \
     rm -rf /tmp/app.zip /tmp/x
 
 # Sin dependencias npm: no hace falta install, el build es instantaneo.
