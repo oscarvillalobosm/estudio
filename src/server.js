@@ -36,6 +36,13 @@ if (process.argv[2] === 'adduser') {
   process.exit(0);
 }
 
+// ---- CLI: node src/server.js deluser <usuario> ------------------------------
+if (process.argv[2] === 'deluser') {
+  const [, , , username] = process.argv;
+  console.log(auth.remove(username) ? `Usuario eliminado: ${username}` : `No existe: ${username}`);
+  process.exit(0);
+}
+
 auth.bootstrap();
 
 // ---- Sirviendo el WASM con la marca retirada -------------------------------

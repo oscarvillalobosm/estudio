@@ -142,8 +142,29 @@ class Auth {
     return username;
   }
 
+  // Borra una cuenta. Se usa para retirar accesos que quedaron con una clave
+  // conocida (por ejemplo una que se creo desde ADMIN_PASSWORD y acabo en un
+  // repositorio). Las sesiones de ese usuario dejan de valer en el acto: el
+  // token se valida contra users, asi que basta con quitarlo de ahi.
+  remove(username) {
+    username = String(username || '').toLowerCase().trim();
+    if (!this.users[username]) return false;
+    delete this.users[username];
+    this._save();
+    return true;
+  }
+
   // El primer arranque crea el admin desde variables de entorno.
   bootstrap() {
+    // RETIRAR_USERS=admin,otro retira esas cuentas al arrancar. Se ejecuta
+    // ANTES del bootstrap para que una cuenta de esas no vuelva a crearse.
+    const retirar = String(process.env.RETIRAR_USERS || '').split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => USERNAME_RE.test(s));
+    for (const u of retirar) {
+      console.log(`[auth] Cuenta retirada ${this.remove(u) ? 'OK' : '(no existia)'}: ${u}`);
+    }
+
     if (Object.keys(this.users).length > 0) return;
     const user = process.env.ADMIN_USER;
     const pass = process.env.ADMIN_PASSWORD;
