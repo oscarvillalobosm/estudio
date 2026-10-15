@@ -67,6 +67,23 @@ las dos formas en cada mensaje.
 `gridcraft:` escrito a mano en la página es exactamente el tipo de cosa que funciona hasta
 que entra la segunda app con puente.
 
+## Una página en blanco no sale en los tests ni en los logs
+
+Pasó al meter CADCraft: **`APP` arranca en `null`** y solo se llena dentro de `boot()`. El
+prefijo del puente se armaba arriba del todo con `APP.id`, así que el script moría con
+`TypeError: Cannot read properties of null (reading 'id')` **antes de arrancar nada**, y
+todas las apps quedaban en blanco —no solo CADCraft—. El navegador solo lo enseña en la
+consola; el contenedor no dice nada, y las pruebas de HTTP pasaban porque la página responde
+igual aunque su script esté muerto.
+
+Por eso `test-pagina.js` **ejecuta el script de `public/app.html` contra un DOM mínimo**: es
+lo que habría cazado el fallo antes de subirlo. Si añades código al tope del script, esa
+prueba es la que te dice si la página sigue arrancando.
+
+**Lección:** `let APP = null` y llenarlo más abajo es una bomba de relojería para todo lo que
+se ejecute antes. Para lo que corre en el tope del script, usa variables que ya existan
+(`appId` viene de la URL y está disponible desde el principio).
+
 ## Verificado empíricamente (no asumir)
 
 Guardado capturado y validado por número mágico:
