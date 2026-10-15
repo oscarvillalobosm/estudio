@@ -25,6 +25,9 @@ services:
       APP_TITLE: "${APP_TITLE:-Estudio}"
       # first (solo el primero, por defecto) | open | closed
       REGISTRATION_MODE: "${REGISTRATION_MODE:-first}"
+      # Lista de cuentas a borrar en el próximo arranque, separadas por comas.
+      # Se deja vacia en cuanto se use: es una medida puntual.
+      RETIRAR_USERS: "${RETIRAR_USERS:-}"
       DATA_DIR: "/data"
     volumes:
       - app-data:/data
